@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            font-size: 24px;
+            overflow: hidden;
+        }
+        #settings {
+            text-align: center;
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+        }
+        .problem {
+            position: absolute;
+            font-size: 200px;
+            font-weight: bold;
+            white-space: nowrap;
+            pointer-events: none;
+            max-width: 95vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #answerContainer {
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        #answerTable {
+            border-collapse: collapse;
+            text-align: center;
+            margin: 20px;
+        }
+        #answerTable td {
+            padding: 12px 25px;
+            white-space: nowrap;
+            font-size: 24px;
+        }
+        input {
+            width: 120px;
+            padding: 12px;
+            background: #333;
+            border: 2px solid #666;
+            color: white;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 24px;
+            background: #444;
+            color: white;
+            border: 2px solid #666;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="settings">
+        <div>
+            <label>题目数量</label><br>
+            <input type="number" id="problemCount" value="20" min="1" max="100">
+        </div>
+        <div>
+            <label>停留时间(秒)</label><br>
+            <input type="number" id="delayTime" value="10" min="0.5" max="10" step="0.5">
+        </div>
+        <button id="startButton">开始练习</button>
+    </div>
+
+<script>
+    let problems = [];
+    let currentIndex = 0;
+    
+    function getProblemCount() {
+        const val = parseInt(document.getElementById('problemCount').value);
+        return Math.max(1, Math.min(100, val || 10));
+    }
+
+    function getDelayTime() {
+        const val = parseFloat(document.getElementById('delayTime').value);
+        return Math.max(0.5, Math.min(10, val || 2)) * 1000;
+    }
+
+    function generateProblems() {
+        const count = getProblemCount();
+        const used = new Set();
+        problems = [];
+        
+        while(problems.length < count) {
+            const isAdd = Math.random() > 0.5;
+            let a, b;
+            
+            do {
+                a = Math.floor(Math.random() * 20) + 1;
+                b = Math.floor(Math.random() * (isAdd ? 20 - a : a)) + 1;
+                const problem = `${a}${isAdd ? '+' : '-'}${b}=`;
+                if (!used.has(problem)) {
+                    used.add(problem);
+                    problems.push({
+                        num1: a,
+                        operator: isAdd ? '+' : '-',
+                        num2: b + '=',
+                        answer: isAdd ? a + b : a - b
+                    });
+                    break;
+                }
+            } while(true);
+        }
+    }
+
+    function showProblem() {
+        const total = getProblemCount();
+        if(currentIndex >= total) {
+            document.body.innerHTML = '';
+            const prompt = document.createElement('div');
+            prompt.textContent = '按任意键显示答案';
+            prompt.id = 'startPrompt';
+            document.body.appendChild(prompt);
+            return;
+        }
+
+        const elem = document.createElement('div');
+        elem.className = 'problem';
+        elem.textContent = `${problems[currentIndex].num1}${problems[currentIndex].operator}${problems[currentIndex].num2}`;
+        
+        // 先添加到DOM获取实际尺寸
+        document.body.appendChild(elem);
+        
+        // 获取实际渲染尺寸
+        const rect = elem.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        // 智能边界计算
+        const maxLeft = vw - rect.width - 20; // 保留20px右边距
+        const maxTop = vh - rect.height - 20; // 保留20px下边距
+        
+        // 设置最终位置
+        elem.style.left = Math.max(20, Math.random() * maxLeft) + 'px';
+        elem.style.top = Math.max(20, Math.random() * maxTop) + 'px';
+
+        setTimeout(() => {
+            elem.remove();
+            currentIndex++;
+            showProblem();
+        }, getDelayTime());
+    }
+
+    function showAnswers() {
+        if(document.fullscreenElement) {
+            document.exitFullscreen();
+        }
+        document.body.innerHTML = '';
+        const container = document.createElement('div');
+        container.id = 'answerContainer';
+        
+        const table = document.createElement('table');
+        table.id = 'answerTable';
+        
+        problems.forEach((p, i) => {
+            const row = document.createElement('tr');
+            
+            const numCell = document.createElement('td');
+            numCell.textContent = `${i + 1}.`;
+            row.appendChild(numCell);
+
+            const equationCell = document.createElement('td');
+            equationCell.innerHTML = `
+                <span class="num1">${p.num1.toString().padStart(2)}</span>
+                <span class="operator">${p.operator}</span>
+                <span class="num2">${p.num2.toString().padEnd(3)}</span>
+            `;
+            row.appendChild(equationCell);
+
+            const answerCell = document.createElement('td');
+            answerCell.className = 'answer';
+            answerCell.textContent = p.answer.toString().padStart(2);
+            row.appendChild(answerCell);
+
+            table.appendChild(row);
+        });
+
+        container.appendChild(table);
+        document.body.appendChild(container);
+    }
+
+    document.getElementById('startButton').addEventListener('click', function() {
+        document.documentElement.requestFullscreen();
+        document.getElementById('settings').style.display = 'none';
+        generateProblems();
+        showProblem();
+    });
+
+    document.addEventListener('keydown', function handler(e) {
+        if(document.getElementById('startPrompt')) {
+            showAnswers();
+            document.removeEventListener('keydown', handler);
+        }
+    });
+</script>
+</body>
+</html>
